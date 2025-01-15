@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"stb_image_write.h": "c",
+			"stb_image.h": "c"
+		}
+	}
+}
