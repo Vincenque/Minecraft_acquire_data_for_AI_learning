@@ -4,11 +4,7 @@
         {
             "label": "Build",
             "type": "shell",
-            "command": "cmd",
-            "args": [
-                "/c",
-                "if not exist \"${workspaceFolder}\\bin\" mkdir \"${workspaceFolder}\\bin\" && gcc -I${workspaceFolder}/headers -LC:/MinGW/lib ${workspaceFolder}/source/main.c -o ${workspaceFolder}/bin/program -lmingw32"
-            ],
+            "command": "${workspaceFolder}/build.bat",
             "group": {
                 "kind": "build",
                 "isDefault": true
@@ -16,7 +12,7 @@
             "problemMatcher": [
                 "$gcc"
             ],
-            "detail": "Compiles the program using GCC after ensuring the bin folder exists."
+            "detail": "Builds the program using a batch script for better control over the build process."
         }
     ]
 }

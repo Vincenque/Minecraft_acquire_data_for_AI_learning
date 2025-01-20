@@ -2,10 +2,10 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Rebuild and Run",
+            "name": "Launch",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/bin/program",
+            "program": "${workspaceFolder}/bin/program.exe",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
