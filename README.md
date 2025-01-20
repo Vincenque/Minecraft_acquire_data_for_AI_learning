@@ -15,3 +15,10 @@ Fulscreen: ON
 Graphics: Fast  
 Font: default  
 Rest of settings is also default.  
+
+## Requirements
+I used "MinGW - Minimalist GNU for Windows Files" project to install MinGW:
+https://sourceforge.net/projects/mingw/files/  
+Added "C:\MinGW\bin" to "Path" environment variable.  
+Changed default console in VS Code to "cmd".  
+Set "IntelliSenseMode" to "gcc" in VS Code.  
