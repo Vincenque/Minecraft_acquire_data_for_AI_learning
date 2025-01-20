@@ -4,14 +4,10 @@
         {
             "label": "Build",
             "type": "shell",
-            "command": "gcc",
+            "command": "cmd",
             "args": [
-                "-I${workspaceFolder}/headers",
-                "-LC:/MinGW/lib",
-                "${workspaceFolder}/source/main.c",
-                "-o",
-                "${workspaceFolder}/bin/program",
-                "-lmingw32",
+                "/c",
+                "if not exist \"${workspaceFolder}\\bin\" mkdir \"${workspaceFolder}\\bin\" && gcc -I${workspaceFolder}/headers -LC:/MinGW/lib ${workspaceFolder}/source/main.c -o ${workspaceFolder}/bin/program -lmingw32"
             ],
             "group": {
                 "kind": "build",
@@ -20,7 +16,7 @@
             "problemMatcher": [
                 "$gcc"
             ],
-            "detail": "Compiles the program using GCC."
+            "detail": "Compiles the program using GCC after ensuring the bin folder exists."
         }
     ]
 }
