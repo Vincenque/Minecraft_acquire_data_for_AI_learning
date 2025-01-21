@@ -4,6 +4,28 @@
 #include "../headers/stb_image_write.h"
 #include <stdio.h>
 
+// Function to convert an image to grayscale
+void convert_to_grayscale(unsigned char *image, int width, int height, int channels) {
+	if (channels < 3) {
+		printf("Image does not have enough channels to process.");
+		return;
+	}
+
+	for (int i = 0; i < width * height; ++i) {
+		int r = image[i * channels];
+		int g = image[i * channels + 1];
+		int b = image[i * channels + 2];
+
+		// Compute the grayscale value using the formula: grayscale = 0.3*R + 0.59*G + 0.11*B
+		unsigned char gray = (unsigned char)(0.3 * r + 0.59 * g + 0.11 * b);
+
+		// Set all RGB channels to the grayscale value
+		image[i * channels] = gray;
+		image[i * channels + 1] = gray;
+		image[i * channels + 2] = gray;
+	}
+}
+
 // Function to convert an image based on the condition (R, G, B) = (221, 221, 221)
 void filter_image(unsigned char *image, int width, int height, int channels) {
 	if (channels < 3) {
@@ -36,24 +58,21 @@ int main() {
 
 	// Load the image
 	unsigned char *image = stbi_load("assets/test_screen.png", &width, &height, &channels, 0);
-	if (!image) {
-		printf("Failed to load image.\n");
-		return 1;
-	}
-
-	printf("Image loaded: %dx%d with %d channels.\n", width, height, channels);
 
 	// Apply the filter to the image
 	filter_image(image, width, height, channels);
 
-	// Save the filtered image as test_screen_filtered.png
-	if (!stbi_write_png("assets/test_screen_filtered.png", width, height, channels, image, width * channels)) {
-		printf("Failed to save the filtered image.\n");
+	// Convert the image to grayscale
+	convert_to_grayscale(image, width, height, channels);
+
+	// Save the grayscale image as test_screen_grayscale.png
+	if (!stbi_write_png("assets/test_screen_grayscale.png", width, height, channels, image, width * channels)) {
+		printf("Failed to save the grayscale image.\n");
 		stbi_image_free(image);
 		return 1;
 	}
 
-	printf("Filtered image saved as test_screen_filtered.png.\n");
+	printf("Grayscale image saved as test_screen_grayscale.png.\n");
 
 	// Free the image memory
 	stbi_image_free(image);
