@@ -57,6 +57,112 @@ void filter_image(unsigned char *image, int width, int height, int channels) {
 	}
 }
 
+void process_left_column(unsigned char *image_data, int row_size, int half_width, int adjusted_height) {
+	// Temporary buffer for each small part
+	unsigned char *buffer = (unsigned char *)malloc(half_width * 18);
+	if (!buffer) {
+		printf("Failed to allocate memory for buffer.\n");
+		return;
+	}
+
+	for (int row = 0; row < adjusted_height / 18; row++) {
+		int row_start = row * 18 * row_size + 3;
+		int crop_end = half_width;
+		int is_all_black = 1; // Flag to check if the entire area is black
+
+		for (int j = 0; j < half_width; j++) { // Iterate over all columns
+			int black_pixel_count = 0;
+			for (int i = 0; i < 18; i++) { // Check all rows in this column
+				unsigned char pixel_value = image_data[row_start + (i * row_size) + j];
+				if (pixel_value == 0) {
+					black_pixel_count++;
+				}
+			}
+
+			if (black_pixel_count != 18) { // If one column is not fully black
+				is_all_black = 0;
+				crop_end = j + 2; // Update crop_end to the last non-black column
+			}
+		}
+
+		if (is_all_black) {
+			printf("Skipped completely black area in left column, row %d.\n", row);
+			continue;
+		}
+
+		// Copy the cropped 18-row segment to the buffer
+		for (int i = 0; i < 18; i++) {
+			memcpy(buffer + (i * crop_end), image_data + row_start + (i * row_size), crop_end);
+		}
+
+		// Save the part to a new PNG file in the assets directory
+		char output_filename[256];
+		snprintf(output_filename, sizeof(output_filename), "assets/output_col0_row%d.png", row);
+		if (!stbi_write_png(output_filename, crop_end, 18, 1, buffer, crop_end)) {
+			printf("Failed to save image part: %s\n", output_filename);
+		} else {
+			printf("Saved: %s\n", output_filename);
+		}
+	}
+
+	free(buffer);
+}
+
+void process_right_column(unsigned char *image_data, int row_size, int half_width, int adjusted_height) {
+	// Temporary buffer for each small part
+	unsigned char *buffer = (unsigned char *)malloc(half_width * 18);
+	if (!buffer) {
+		printf("Failed to allocate memory for buffer.\n");
+		return;
+	}
+
+	for (int row = 0; row < adjusted_height / 18; row++) {
+		int row_start = row * 18 * row_size;
+		int crop_start = 0;
+		int crop_end = half_width - 5;
+		int is_all_black = 1; // Flag to check if the entire area is black
+
+		for (int j = 0; j < half_width; j++) { // Iterate over all columns
+			int black_pixel_count = 0;
+			for (int i = 0; i < 18; i++) { // Check all rows in this column
+				unsigned char pixel_value = image_data[row_start + (i * row_size) + j];
+				if (pixel_value == 0) {
+					black_pixel_count++;
+				}
+			}
+
+			if (black_pixel_count != 18) { // If one column is not fully black
+				is_all_black = 0;
+				if (crop_start == 0) {
+					crop_start = (j > 0) ? j - 1 : 0; // Start cropping from one column before
+				}
+			}
+		}
+
+		if (is_all_black) {
+			printf("Skipped completely black area in right column, row %d.\n", row);
+			continue;
+		}
+
+		// Copy the cropped 18-row segment to the buffer
+		for (int i = 0; i < 18; i++) {
+			memcpy(buffer + (i * (crop_end - crop_start)), image_data + row_start + (i * row_size) + crop_start,
+				   crop_end - crop_start);
+		}
+
+		// Save the part to a new PNG file in the assets directory
+		char output_filename[256];
+		snprintf(output_filename, sizeof(output_filename), "assets/output_col1_row%d.png", row);
+		if (!stbi_write_png(output_filename, crop_end - crop_start, 18, 1, buffer, crop_end - crop_start)) {
+			printf("Failed to save image part: %s\n", output_filename);
+		} else {
+			printf("Saved: %s\n", output_filename);
+		}
+	}
+
+	free(buffer);
+}
+
 void divide_and_save_image(unsigned char *image, int width, int height, int channels) {
 	if (channels != 1) {
 		printf("Error: Image must have 1 channel (grayscale values).\n");
@@ -71,39 +177,10 @@ void divide_and_save_image(unsigned char *image, int width, int height, int chan
 	// Divide the image into two columns
 	int half_width = width / 2;
 
-	// Temporary buffer for each small part
-	unsigned char *buffer = (unsigned char *)malloc(half_width * 18);
-	if (!buffer) {
-		printf("Failed to allocate memory for buffer.\n");
-		return;
-	}
+	// Process left and right columns separately
+	process_left_column(image_data, row_size, half_width, adjusted_height);
+	process_right_column(image_data + half_width, row_size, half_width, adjusted_height);
 
-	// Iterate over the two columns
-	for (int col = 0; col < 2; col++) {
-		unsigned char *column_data = image_data + (col * half_width);
-
-		// Divide the column into rows of height 18
-		for (int row = 0; row < adjusted_height / 18; row++) {
-			int row_start = row * 18 * row_size;
-
-			// Copy the 18-row segment to the buffer
-			for (int i = 0; i < 18; i++) {
-				memcpy(buffer + (i * half_width), column_data + row_start + (i * row_size), half_width);
-			}
-
-			// Save the part to a new PNG file in the assets directory
-			char output_filename[256];
-			snprintf(output_filename, sizeof(output_filename), "assets/output_col%d_row%d.png", col, row);
-			if (!stbi_write_png(output_filename, half_width, 18, 1, buffer, half_width)) {
-				printf("Failed to save image part: %s\n", output_filename);
-			} else {
-				printf("Saved: %s\n", output_filename);
-			}
-		}
-	}
-
-	// Free resources
-	free(buffer);
 	printf("Image processing completed.\n");
 }
 
