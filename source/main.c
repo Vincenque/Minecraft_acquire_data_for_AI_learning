@@ -49,7 +49,7 @@ void divide_single_channel_image_to_columns(unsigned char *image, int width, int
 			}
 		}
 	}
-
+	
 	// Adjust the height based on last white row and division by 18
 	if (last_white_row != -1) {
 		int new_height = last_white_row + 1;
@@ -100,8 +100,7 @@ void divide_single_channel_image_to_columns(unsigned char *image, int width, int
 		printf("Left column image saved to assets/left_column_image.png\n");
 	}
 
-	if (stbi_write_png("assets/right_column_image.png", column_width, height, 1, right_column_image, column_width) ==
-		0) {
+	if (stbi_write_png("assets/right_column_image.png", column_width, height, 1, right_column_image, column_width) == 0) {
 		printf("Error: Could not save right column image.\n");
 	} else {
 		printf("Right column image saved to assets/right_column_image.png\n");

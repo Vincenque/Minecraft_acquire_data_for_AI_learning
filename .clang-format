@@ -1,4 +1,4 @@
-ColumnLimit: 120
+ColumnLimit: 180
 IndentWidth: 4             # Number of spaces per indentation level (used when tabs are converted to spaces)
 UseTab: Always             # Use tabs instead of spaces for indentation
 TabWidth: 4                # Number of spaces that represent a tab character
