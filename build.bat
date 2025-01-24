@@ -1,4 +1,9 @@
 @echo off
+rem Remove the old executable if it exists
 if exist "%~dp0bin\program.exe" del /q "%~dp0bin\program.exe"
+
+rem Create the bin directory if it doesn't exist
 if not exist "%~dp0bin" mkdir "%~dp0bin"
-gcc -I"%~dp0headers" -LC:/MinGW/lib "%~dp0source\main.c" -o "%~dp0bin\program.exe" -lmingw32
+
+rem Compile with debugging symbols (-g flag)
+gcc -g -I"%~dp0headers" -LC:/MinGW/lib "%~dp0source\main.c" -o "%~dp0bin\program.exe" -lmingw32
