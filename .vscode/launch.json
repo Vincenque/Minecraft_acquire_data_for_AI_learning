@@ -15,7 +15,7 @@
                     "value": "C:/MinGW/bin:${env:PATH}"
                 }
             ],
-            "externalConsole": false,
+            "externalConsole": true,
             "preLaunchTask": "Build",
             "MIMode": "gdb",
             "miDebuggerPath": "C:/MinGW/bin/gdb.exe",
