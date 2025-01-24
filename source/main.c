@@ -38,7 +38,9 @@ unsigned char *convert_to_single_channel(unsigned char *image, int width, int he
 	return single_channel_image;
 }
 
-void divide_single_channel_image_to_columns(unsigned char *image, int width, int height) {
+void divide_single_channel_image_to_columns(unsigned char *image, int width, int height, unsigned char **left_column, unsigned char **right_column, int *final_width,
+											int *final_height) {
+
 	// Find the last row with a white pixel (255)
 	int last_white_row = -1;
 	for (int row = 0; row < height; row++) {
@@ -49,7 +51,7 @@ void divide_single_channel_image_to_columns(unsigned char *image, int width, int
 			}
 		}
 	}
-	
+
 	// Adjust the height based on last white row and division by 18
 	if (last_white_row != -1) {
 		int new_height = last_white_row + 1;
@@ -77,40 +79,26 @@ void divide_single_channel_image_to_columns(unsigned char *image, int width, int
 	int column_width = width / 2;
 
 	// Allocate memory for the left and right columns
-	unsigned char *left_column_image = (unsigned char *)malloc(column_width * height * sizeof(unsigned char));
-	unsigned char *right_column_image = (unsigned char *)malloc(column_width * height * sizeof(unsigned char));
+	*left_column = (unsigned char *)malloc(column_width * height * sizeof(unsigned char));
+	*right_column = (unsigned char *)malloc(column_width * height * sizeof(unsigned char));
 
-	if (!left_column_image || !right_column_image) {
+	if (!*left_column || !*right_column) {
 		printf("Error: Memory allocation failed.\n");
-		free(left_column_image);
-		free(right_column_image);
+		free(*left_column);
+		free(*right_column);
 		return;
 	}
 
 	// Copy pixels to the left and right column images
 	for (int row = 0; row < height; row++) {
-		memcpy(left_column_image + row * column_width, image + row * width, column_width);
-		memcpy(right_column_image + row * column_width, image + row * width + column_width, column_width);
+		memcpy(*left_column + row * column_width, image + row * width, column_width);
+		memcpy(*right_column + row * column_width, image + row * width + column_width, column_width);
 	}
 
-	// Save the images to files in the assets folder
-	if (stbi_write_png("assets/left_column_image.png", column_width, height, 1, left_column_image, column_width) == 0) {
-		printf("Error: Could not save left column image.\n");
-	} else {
-		printf("Left column image saved to assets/left_column_image.png\n");
-	}
+	*final_width = column_width;
+	*final_height = height;
 
-	if (stbi_write_png("assets/right_column_image.png", column_width, height, 1, right_column_image, column_width) == 0) {
-		printf("Error: Could not save right column image.\n");
-	} else {
-		printf("Right column image saved to assets/right_column_image.png\n");
-	}
-
-	// Free allocated memory
-	free(left_column_image);
-	free(right_column_image);
-
-	printf("Image successfully divided and saved.\n");
+	printf("Image successfully divided into columns.\n");
 }
 
 int main() {
@@ -141,13 +129,39 @@ int main() {
 	printf("Grayscale image saved as assets/test_screen_grayscale.png.\n");
 
 	// Divide and save the single-channel image
-	divide_single_channel_image_to_columns(single_channel_image, width, height);
+	unsigned char *left_column = NULL;
+	unsigned char *right_column = NULL;
+	int final_width = 0;
+	int final_height = 0;
 
-	// Free the image memory
+	divide_single_channel_image_to_columns(single_channel_image, width, height, &left_column, &right_column, &final_width, &final_height);
+
+	if (left_column && right_column) {
+		printf("Final Width: %d, Final Height: %d\n", final_width, final_height);
+
+		// Save the images to files in the assets folder
+		if (stbi_write_png("assets/left_column_image.png", final_width, final_height, 1, left_column, final_width) == 0) {
+			printf("Error: Could not save left column image.\n");
+		} else {
+			printf("Left column image saved to assets/left_column_image.png\n");
+		}
+
+		if (stbi_write_png("assets/right_column_image.png", final_width, final_height, 1, right_column, final_width) == 0) {
+			printf("Error: Could not save right column image.\n");
+		} else {
+			printf("Right column image saved to assets/right_column_image.png\n");
+		}
+
+		// Free allocated memory for the columns
+		free(left_column);
+		free(right_column);
+	} else {
+		printf("Error: Could not divide the image into columns.\n");
+	}
+
+	// Free the single-channel image
 	free(single_channel_image);
 	stbi_image_free(image);
-
-	printf("Work done!\n");
 
 	return 0;
 }
