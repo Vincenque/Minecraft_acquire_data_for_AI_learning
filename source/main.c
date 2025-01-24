@@ -7,6 +7,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+const int row_height = 18;
+
 // Function to convert RGB image to single-channel binary image
 unsigned char *convert_to_single_channel(unsigned char *image, int width, int height, int channels) {
 	if (channels < 3) {
@@ -101,6 +103,54 @@ void divide_single_channel_image_to_columns(unsigned char *image, int width, int
 	printf("Image successfully divided into columns.\n");
 }
 
+// Function to divide a column into rows of given height, crop rows, and save them to files
+void divide_column_into_rows(unsigned char *column, int width, int height, const char *output_prefix) {
+	int num_rows = height / row_height;
+	for (int i = 0; i < num_rows; i++) {
+		// Extract the current row
+		unsigned char *row = column + (i * row_height * width);
+
+		// Find the first and last column containing white pixels (255)
+		int first_col = -1, last_col = -1;
+		for (int x = 0; x < width; x++) {
+			for (int y = 0; y < row_height; y++) {
+				if (row[y * width + x] == 255) {
+					if (first_col == -1)
+						first_col = x;
+					last_col = x;
+				}
+			}
+		}
+
+		// If no white pixel found, skip saving this row
+		if (first_col == -1 || last_col == -1)
+			continue;
+
+		// Add a black border by including one column on both sides
+		first_col = (first_col > 0) ? first_col - 1 : first_col;
+		last_col = (last_col < width - 1) ? last_col + 1 : last_col;
+
+		int cropped_width = last_col - first_col + 1;
+		unsigned char *cropped_row = (unsigned char *)malloc(cropped_width * row_height);
+
+		// Copy the cropped row data
+		for (int y = 0; y < row_height; y++) {
+			memcpy(cropped_row + y * cropped_width, row + y * width + first_col, cropped_width);
+		}
+
+		// Generate a filename for the row
+		char filename[256];
+		snprintf(filename, sizeof(filename), "%s_row_%d.png", output_prefix, i);
+
+		// Save the image as a grayscale PNG
+		if (!stbi_write_png(filename, cropped_width, row_height, 1, cropped_row, cropped_width)) {
+			fprintf(stderr, "Failed to write PNG: %s\n", filename);
+		}
+
+		free(cropped_row);
+	}
+}
+
 int main() {
 	int width, height, channels;
 
@@ -151,6 +201,10 @@ int main() {
 		} else {
 			printf("Right column image saved to assets/right_column_image.png\n");
 		}
+
+		// Divide and save rows for left and right columns
+		divide_column_into_rows(left_column, final_width, final_height, "assets/left_column");
+		divide_column_into_rows(right_column, final_width, final_height, "assets/right_column");
 
 		// Free allocated memory for the columns
 		free(left_column);
