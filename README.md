@@ -1,6 +1,6 @@
 # Minecraft - acquire data for AI learning
 ## About
-This project is about to creat code in C to acquire data from minecraft to create a database 
+This project is about to creat code in C/C++ to acquire data from minecraft to create a database 
 for AI to learn to dig in a cave in a special pattern, avoid holes, find minerals with 
 high efficiency without cheating.
 

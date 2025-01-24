@@ -2,11 +2,12 @@
 #include "../headers/stb_image.h"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "../headers/stb_image_write.h"
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-// Function to convert RGB image to single-channel grayscale
+// Function to convert RGB image to single-channel binary image
 unsigned char *convert_to_single_channel(unsigned char *image, int width, int height, int channels) {
 	if (channels < 3) {
 		printf("Image does not have enough channels to process.\n");
@@ -21,167 +22,96 @@ unsigned char *convert_to_single_channel(unsigned char *image, int width, int he
 	}
 
 	for (int i = 0; i < width * height; ++i) {
-		int r = image[i * channels];
-		int g = image[i * channels + 1];
-		int b = image[i * channels + 2];
+		// Extract RGB values
+		unsigned char r = image[i * channels];
+		unsigned char g = image[i * channels + 1];
+		unsigned char b = image[i * channels + 2];
 
-		// Compute the grayscale value: grayscale = 0.3*R + 0.59*G + 0.11*B
-		single_channel_image[i] = (unsigned char)(0.3 * r + 0.59 * g + 0.11 * b);
+		// Check if all channels are equal to 221, map to 255; otherwise, map to 0
+		if (r == 221 && g == 221 && b == 221) {
+			single_channel_image[i] = 255;
+		} else {
+			single_channel_image[i] = 0;
+		}
 	}
 
 	return single_channel_image;
 }
 
-// Function to filter an image based on the condition (R, G, B) = (221, 221, 221)
-void filter_image(unsigned char *image, int width, int height, int channels) {
-	if (channels < 3) {
-		printf("Image does not have enough channels to process.\n");
-		return;
-	}
-
-	for (int i = 0; i < width * height; ++i) {
-		int r = image[i * channels];
-		int g = image[i * channels + 1];
-		int b = image[i * channels + 2];
-
-		// Check if pixel (r, g, b) is equal to (221, 221, 221)
-		if (r == 221 && g == 221 && b == 221) {
-			image[i * channels] = 255; // Set to white
-			image[i * channels + 1] = 255;
-			image[i * channels + 2] = 255;
-		} else {
-			image[i * channels] = 0; // Set to black
-			image[i * channels + 1] = 0;
-			image[i * channels + 2] = 0;
-		}
-	}
-}
-
-void process_left_column(unsigned char *image_data, int row_size, int half_width, int adjusted_height) {
-	// Temporary buffer for each small part
-	unsigned char *buffer = (unsigned char *)malloc(half_width * 18);
-	if (!buffer) {
-		printf("Failed to allocate memory for buffer.\n");
-		return;
-	}
-
-	for (int row = 0; row < adjusted_height / 18; row++) {
-		int row_start = row * 18 * row_size + 3;
-		int crop_end = half_width;
-		int is_all_black = 1; // Flag to check if the entire area is black
-
-		for (int j = 0; j < half_width; j++) { // Iterate over all columns
-			int black_pixel_count = 0;
-			for (int i = 0; i < 18; i++) { // Check all rows in this column
-				unsigned char pixel_value = image_data[row_start + (i * row_size) + j];
-				if (pixel_value == 0) {
-					black_pixel_count++;
-				}
-			}
-
-			if (black_pixel_count != 18) { // If one column is not fully black
-				is_all_black = 0;
-				crop_end = j + 2; // Update crop_end to the last non-black column
+void divide_single_channel_image_to_columns(unsigned char *image, int width, int height) {
+	// Find the last row with a white pixel (255)
+	int last_white_row = -1;
+	for (int row = 0; row < height; row++) {
+		for (int col = 0; col < width; col++) {
+			if (image[row * width + col] == 255) {
+				last_white_row = row;
+				break;
 			}
 		}
-
-		if (is_all_black) {
-			printf("Skipped completely black area in left column, row %d.\n", row);
-			continue;
-		}
-
-		// Copy the cropped 18-row segment to the buffer
-		for (int i = 0; i < 18; i++) {
-			memcpy(buffer + (i * crop_end), image_data + row_start + (i * row_size), crop_end);
-		}
-
-		// Save the part to a new PNG file in the assets directory
-		char output_filename[256];
-		snprintf(output_filename, sizeof(output_filename), "assets/output_col0_row%d.png", row);
-		if (!stbi_write_png(output_filename, crop_end, 18, 1, buffer, crop_end)) {
-			printf("Failed to save image part: %s\n", output_filename);
-		} else {
-			printf("Saved: %s\n", output_filename);
-		}
 	}
 
-	free(buffer);
-}
-
-void process_right_column(unsigned char *image_data, int row_size, int half_width, int adjusted_height) {
-	// Temporary buffer for each small part
-	unsigned char *buffer = (unsigned char *)malloc(half_width * 18);
-	if (!buffer) {
-		printf("Failed to allocate memory for buffer.\n");
-		return;
-	}
-
-	for (int row = 0; row < adjusted_height / 18; row++) {
-		int row_start = row * 18 * row_size;
-		int crop_start = 0;
-		int crop_end = half_width - 5;
-		int is_all_black = 1; // Flag to check if the entire area is black
-
-		for (int j = 0; j < half_width; j++) { // Iterate over all columns
-			int black_pixel_count = 0;
-			for (int i = 0; i < 18; i++) { // Check all rows in this column
-				unsigned char pixel_value = image_data[row_start + (i * row_size) + j];
-				if (pixel_value == 0) {
-					black_pixel_count++;
-				}
-			}
-
-			if (black_pixel_count != 18) { // If one column is not fully black
-				is_all_black = 0;
-				if (crop_start == 0) {
-					crop_start = (j > 0) ? j - 1 : 0; // Start cropping from one column before
-				}
-			}
+	// Adjust the height based on last white row and division by 18
+	if (last_white_row != -1) {
+		int new_height = last_white_row + 1;
+		int remainder = (new_height - 2) % 18;
+		if (remainder != 0) {
+			new_height += (18 - remainder);
 		}
-
-		if (is_all_black) {
-			printf("Skipped completely black area in right column, row %d.\n", row);
-			continue;
+		if (new_height > height) {
+			new_height = height;
 		}
-
-		// Copy the cropped 18-row segment to the buffer
-		for (int i = 0; i < 18; i++) {
-			memcpy(buffer + (i * (crop_end - crop_start)), image_data + row_start + (i * row_size) + crop_start,
-				   crop_end - crop_start);
-		}
-
-		// Save the part to a new PNG file in the assets directory
-		char output_filename[256];
-		snprintf(output_filename, sizeof(output_filename), "assets/output_col1_row%d.png", row);
-		if (!stbi_write_png(output_filename, crop_end - crop_start, 18, 1, buffer, crop_end - crop_start)) {
-			printf("Failed to save image part: %s\n", output_filename);
-		} else {
-			printf("Saved: %s\n", output_filename);
-		}
-	}
-
-	free(buffer);
-}
-
-void divide_and_save_image(unsigned char *image, int width, int height, int channels) {
-	if (channels != 1) {
-		printf("Error: Image must have 1 channel (grayscale values).\n");
-		return;
+		height = new_height;
 	}
 
 	// Skip the first two rows
-	int row_size = width;
-	unsigned char *image_data = image + (2 * row_size);
-	int adjusted_height = height - 2; // New height after skipping two rows
+	image += 2 * width;
+	height -= 2;
 
-	// Divide the image into two columns
-	int half_width = width / 2;
+	// Validate dimensions
+	if (width % 2 != 0) {
+		printf("Error: Image width must be even to divide into two equal columns.\n");
+		return;
+	}
 
-	// Process left and right columns separately
-	process_left_column(image_data, row_size, half_width, adjusted_height);
-	process_right_column(image_data + half_width, row_size, half_width, adjusted_height);
+	// Calculate dimensions for each column
+	int column_width = width / 2;
 
-	printf("Image processing completed.\n");
+	// Allocate memory for the left and right columns
+	unsigned char *left_column_image = (unsigned char *)malloc(column_width * height * sizeof(unsigned char));
+	unsigned char *right_column_image = (unsigned char *)malloc(column_width * height * sizeof(unsigned char));
+
+	if (!left_column_image || !right_column_image) {
+		printf("Error: Memory allocation failed.\n");
+		free(left_column_image);
+		free(right_column_image);
+		return;
+	}
+
+	// Copy pixels to the left and right column images
+	for (int row = 0; row < height; row++) {
+		memcpy(left_column_image + row * column_width, image + row * width, column_width);
+		memcpy(right_column_image + row * column_width, image + row * width + column_width, column_width);
+	}
+
+	// Save the images to files in the assets folder
+	if (stbi_write_png("assets/left_column_image.png", column_width, height, 1, left_column_image, column_width) == 0) {
+		printf("Error: Could not save left column image.\n");
+	} else {
+		printf("Left column image saved to assets/left_column_image.png\n");
+	}
+
+	if (stbi_write_png("assets/right_column_image.png", column_width, height, 1, right_column_image, column_width) ==
+		0) {
+		printf("Error: Could not save right column image.\n");
+	} else {
+		printf("Right column image saved to assets/right_column_image.png\n");
+	}
+
+	// Free allocated memory
+	free(left_column_image);
+	free(right_column_image);
+
+	printf("Image successfully divided and saved.\n");
 }
 
 int main() {
@@ -193,9 +123,6 @@ int main() {
 		printf("Failed to load the image.\n");
 		return 1;
 	}
-
-	// Apply the filter to the image
-	filter_image(image, width, height, channels);
 
 	// Convert the filtered image to single-channel
 	unsigned char *single_channel_image = convert_to_single_channel(image, width, height, channels);
@@ -215,7 +142,7 @@ int main() {
 	printf("Grayscale image saved as assets/test_screen_grayscale.png.\n");
 
 	// Divide and save the single-channel image
-	divide_and_save_image(single_channel_image, width, height, 1);
+	divide_single_channel_image_to_columns(single_channel_image, width, height);
 
 	// Free the image memory
 	free(single_channel_image);
