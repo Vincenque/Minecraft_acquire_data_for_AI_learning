@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <windows.h>
 
 const int row_height = 18;
 
@@ -103,6 +104,99 @@ void divide_single_channel_image_to_columns(unsigned char *image, int width, int
 	printf("Image successfully divided into columns.\n");
 }
 
+// Function to determine if a column is completely black
+bool is_column_black(unsigned char *row, int column, int width) {
+	for (int y = 0; y < row_height; y++) {
+		if (row[y * width + column] != 0) {
+			return false;
+		}
+	}
+	return true;
+}
+
+// Function to determine if a column has any white pixels
+bool has_white_pixel(unsigned char *row, int column, int width) {
+	for (int y = 0; y < row_height; y++) {
+		if (row[y * width + column] == 255) {
+			return true;
+		}
+	}
+	return false;
+}
+
+int character_index = 0;
+
+// Function to save a character as a PNG file
+void save_character_as_png(unsigned char *character, int char_width, int char_height) {
+	char filename[256];
+	snprintf(filename, sizeof(filename), "assets/char_%d.png", character_index);
+	if (!stbi_write_png(filename, char_width, char_height, 1, character, char_width)) {
+		printf("Failed to save image: %s\n", filename);
+	} else {
+		printf("Saved character as %s\n", filename);
+		character_index++;
+	}
+}
+
+// Main function to process the row
+void extract_characters(unsigned char *cropped_row, int cropped_width) {
+	int start_col = -1;
+	int space_count = 0;
+
+	for (int col = 0; col < cropped_width; col++) {
+		if (is_column_black(cropped_row, col, cropped_width)) {
+			space_count++;
+		} else {
+			space_count = 0;
+		}
+
+		if (has_white_pixel(cropped_row, col, cropped_width)) {
+			if (start_col == -1) {
+				start_col = col;
+			}
+		} else {
+			if (start_col != -1) {
+				int end_col = col - 1;
+				int char_width = end_col - start_col + 3; // Include 1-pixel black borders
+
+				// Allocate memory for the character
+				unsigned char *character = (unsigned char *)malloc(char_width * row_height);
+				if (!character) {
+					printf("Memory allocation failed for character extraction\n");
+					exit(EXIT_FAILURE);
+				}
+
+				// Copy the character data, including 1-pixel black borders
+				for (int y = 0; y < row_height; y++) {
+					for (int x = -1; x <= char_width - 2; x++) {
+						int src_col = start_col + x;
+						int dst_col = x + 1;
+
+						if (src_col < 0 || src_col >= cropped_width) {
+							character[y * char_width + dst_col] = 0; // Black border
+						} else {
+							character[y * char_width + dst_col] = cropped_row[y * cropped_width + src_col];
+						}
+					}
+				}
+
+				// Save the character as a PNG file
+				save_character_as_png(character, char_width, row_height);
+
+				// Free the allocated memory
+				free(character);
+
+				start_col = -1;
+			}
+		}
+
+		// Handle spaces (8 black columns in a row)
+		if (space_count == 8) {
+			space_count = 0;
+		}
+	}
+}
+
 // Function to divide a column into rows of given height, crop rows, and save them to files
 void divide_column_into_rows(unsigned char *column, int width, int height, const char *output_prefix) {
 	int num_rows = height / row_height;
@@ -138,13 +232,15 @@ void divide_column_into_rows(unsigned char *column, int width, int height, const
 			memcpy(cropped_row + y * cropped_width, row + y * width + first_col, cropped_width);
 		}
 
+		extract_characters(cropped_row, cropped_width);
+
 		// Generate a filename for the row
 		char filename[256];
 		snprintf(filename, sizeof(filename), "%s_row_%d.png", output_prefix, i);
 
 		// Save the image as a grayscale PNG
 		if (!stbi_write_png(filename, cropped_width, row_height, 1, cropped_row, cropped_width)) {
-			fprintf(stderr, "Failed to write PNG: %s\n", filename);
+			printf("Failed to write PNG: %s\n", filename);
 		}
 
 		free(cropped_row);
