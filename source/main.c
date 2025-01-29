@@ -105,8 +105,8 @@ void divide_single_channel_image_to_columns(unsigned char *image, int width, int
 }
 
 // Function to determine if a column is completely black
-bool is_column_black(unsigned char *row, int column, int width) {
-	for (int y = 0; y < row_height; y++) {
+bool is_column_black(unsigned char *row, int column, int width, int cropped_height) {
+	for (int y = 0; y < cropped_height; y++) {
 		if (row[y * width + column] != 0) {
 			return false;
 		}
@@ -115,8 +115,8 @@ bool is_column_black(unsigned char *row, int column, int width) {
 }
 
 // Function to determine if a column has any white pixels
-bool has_white_pixel(unsigned char *row, int column, int width) {
-	for (int y = 0; y < row_height; y++) {
+bool has_white_pixel(unsigned char *row, int column, int width, int cropped_height) {
+	for (int y = 0; y < cropped_height; y++) {
 		if (row[y * width + column] == 255) {
 			return true;
 		}
@@ -139,18 +139,18 @@ void save_character_as_png(unsigned char *character, int char_width, int char_he
 }
 
 // Main function to process the row
-void extract_characters(unsigned char *cropped_row, int cropped_width) {
+void extract_characters(unsigned char *cropped_row, int cropped_width, int cropped_height) {
 	int start_col = -1;
 	int space_count = 0;
 
 	for (int col = 0; col < cropped_width; col++) {
-		if (is_column_black(cropped_row, col, cropped_width)) {
+		if (is_column_black(cropped_row, col, cropped_width, cropped_height)) {
 			space_count++;
 		} else {
 			space_count = 0;
 		}
 
-		if (has_white_pixel(cropped_row, col, cropped_width)) {
+		if (has_white_pixel(cropped_row, col, cropped_width, cropped_height)) {
 			if (start_col == -1) {
 				start_col = col;
 			}
@@ -160,14 +160,14 @@ void extract_characters(unsigned char *cropped_row, int cropped_width) {
 				int char_width = end_col - start_col + 3; // Include 1-pixel black borders
 
 				// Allocate memory for the character
-				unsigned char *character = (unsigned char *)malloc(char_width * row_height);
+				unsigned char *character = (unsigned char *)malloc(char_width * cropped_height);
 				if (!character) {
 					printf("Memory allocation failed for character extraction\n");
 					exit(EXIT_FAILURE);
 				}
 
 				// Copy the character data, including 1-pixel black borders
-				for (int y = 0; y < row_height; y++) {
+				for (int y = 0; y < cropped_height; y++) {
 					for (int x = -1; x <= char_width - 2; x++) {
 						int src_col = start_col + x;
 						int dst_col = x + 1;
@@ -181,7 +181,7 @@ void extract_characters(unsigned char *cropped_row, int cropped_width) {
 				}
 
 				// Save the character as a PNG file
-				save_character_as_png(character, char_width, row_height);
+				save_character_as_png(character, char_width, cropped_height);
 
 				// Free the allocated memory
 				free(character);
@@ -201,13 +201,16 @@ void extract_characters(unsigned char *cropped_row, int cropped_width) {
 void divide_column_into_rows(unsigned char *column, int width, int height, const char *output_prefix) {
 	int num_rows = height / row_height;
 	for (int i = 0; i < num_rows; i++) {
-		// Extract the current row
-		unsigned char *row = column + (i * row_height * width);
+		// Extract the current row, skipping the first two rows
+		unsigned char *row = column + (i * row_height * width) + (2 * width);
+		int effective_height = row_height - 2;
+		if (effective_height <= 0)
+			continue; // Ensure valid height
 
 		// Find the first and last column containing white pixels (255)
 		int first_col = -1, last_col = -1;
 		for (int x = 0; x < width; x++) {
-			for (int y = 0; y < row_height; y++) {
+			for (int y = 0; y < effective_height; y++) {
 				if (row[y * width + x] == 255) {
 					if (first_col == -1)
 						first_col = x;
@@ -225,21 +228,23 @@ void divide_column_into_rows(unsigned char *column, int width, int height, const
 		last_col = (last_col < width - 1) ? last_col + 1 : last_col;
 
 		int cropped_width = last_col - first_col + 1;
-		unsigned char *cropped_row = (unsigned char *)malloc(cropped_width * row_height);
+		int cropped_height = effective_height;
+
+		unsigned char *cropped_row = (unsigned char *)malloc(cropped_width * cropped_height);
 
 		// Copy the cropped row data
-		for (int y = 0; y < row_height; y++) {
+		for (int y = 0; y < cropped_height; y++) {
 			memcpy(cropped_row + y * cropped_width, row + y * width + first_col, cropped_width);
 		}
 
-		extract_characters(cropped_row, cropped_width);
+		extract_characters(cropped_row, cropped_width, cropped_height);
 
 		// Generate a filename for the row
 		char filename[256];
 		snprintf(filename, sizeof(filename), "%s_row_%d.png", output_prefix, i);
 
 		// Save the image as a grayscale PNG
-		if (!stbi_write_png(filename, cropped_width, row_height, 1, cropped_row, cropped_width)) {
+		if (!stbi_write_png(filename, cropped_width, cropped_height, 1, cropped_row, cropped_width)) {
 			printf("Failed to write PNG: %s\n", filename);
 		}
 
