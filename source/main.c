@@ -209,7 +209,7 @@ void divide_single_channel_image_to_columns(unsigned char *image, int width, int
 	*final_width = column_width;
 	*final_height = height;
 
-	printf("Image successfully divided into columns.\n");
+	//printf("Image successfully divided into columns.\n");
 }
 
 // Function to determine if a column is completely black
@@ -233,18 +233,6 @@ bool has_white_pixel(unsigned char *row, int column, int width, int cropped_heig
 }
 
 int character_index = 0;
-
-// Function to save a character as a PNG file
-void save_character_as_png(unsigned char *character, int char_width, int char_height) {
-	char filename[256];
-	snprintf(filename, sizeof(filename), "assets/char_%d.png", character_index);
-	if (!stbi_write_png(filename, char_width, char_height, 1, character, char_width)) {
-		printf("Failed to save image: %s\n", filename);
-	} else {
-		// printf("Saved character as %s\n", filename);
-		character_index++;
-	}
-}
 
 // Main function to process the row
 void extract_characters(unsigned char *cropped_row, int cropped_width, int cropped_height) {
@@ -303,9 +291,6 @@ void extract_characters(unsigned char *cropped_row, int cropped_width, int cropp
 				char matched_char = match_character(character, char_width, MATRIX_ROWS);
 				write_character_to_file(matched_char);
 
-				// Save the character as a PNG file
-				save_character_as_png(character, char_width, cropped_height);
-
 				// Free the allocated memory
 				free(character);
 
@@ -317,7 +302,7 @@ void extract_characters(unsigned char *cropped_row, int cropped_width, int cropp
 }
 
 // Function to divide a column into rows of given height, crop rows, and save them to files
-void divide_column_into_rows(unsigned char *column, int width, int height, const char *output_prefix) {
+void recognize_and_save_text_from_columns(unsigned char *column, int width, int height) {
 	int num_rows = height / row_height;
 	for (int i = 0; i < num_rows; i++) {
 		// Extract the current row, skipping the first two rows
@@ -360,15 +345,6 @@ void divide_column_into_rows(unsigned char *column, int width, int height, const
 
 		extract_characters(cropped_row, cropped_width, cropped_height);
 
-		// Generate a filename for the row
-		char filename[256];
-		snprintf(filename, sizeof(filename), "%s_row_%d.png", output_prefix, i);
-
-		// Save the image as a grayscale PNG
-		if (!stbi_write_png(filename, cropped_width, cropped_height, 1, cropped_row, cropped_width)) {
-			printf("Failed to write PNG: %s\n", filename);
-		}
-
 		free(cropped_row);
 	}
 }
@@ -387,20 +363,6 @@ int main() {
 
 	// Convert the filtered image to single-channel
 	unsigned char *single_channel_image = convert_to_single_channel(image, width, height, channels);
-	if (!single_channel_image) {
-		stbi_image_free(image);
-		return 1;
-	}
-
-	// Save the single-channel image
-	if (!stbi_write_png("assets/test_screen_grayscale.png", width, height, 1, single_channel_image, width)) {
-		printf("Failed to save the grayscale image.\n");
-		free(single_channel_image);
-		stbi_image_free(image);
-		return 1;
-	}
-
-	printf("Grayscale image saved as assets/test_screen_grayscale.png.\n");
 
 	// Divide and save the single-channel image
 	unsigned char *left_column = NULL;
@@ -410,34 +372,13 @@ int main() {
 
 	divide_single_channel_image_to_columns(single_channel_image, width, height, &left_column, &right_column, &final_width, &final_height);
 
-	if (left_column && right_column) {
-		printf("Final Width: %d, Final Height: %d\n", final_width, final_height);
-
-		// Save the images to files in the assets folder
-		if (stbi_write_png("assets/left_column_image.png", final_width, final_height, 1, left_column, final_width) == 0) {
-			printf("Error: Could not save left column image.\n");
-		} else {
-			printf("Left column image saved to assets/left_column_image.png\n");
-		}
-
-		if (stbi_write_png("assets/right_column_image.png", final_width, final_height, 1, right_column, final_width) == 0) {
-			printf("Error: Could not save right column image.\n");
-		} else {
-			printf("Right column image saved to assets/right_column_image.png\n");
-		}
-
-		// Divide and save rows for left and right columns
-		divide_column_into_rows(left_column, final_width, final_height, "assets/left_column");
-		divide_column_into_rows(right_column, final_width, final_height, "assets/right_column");
-
-		// Free allocated memory for the columns
-		free(left_column);
-		free(right_column);
-	} else {
-		printf("Error: Could not divide the image into columns.\n");
-	}
+	// Divide and save rows for left and right columns
+	recognize_and_save_text_from_columns(left_column, final_width, final_height);
+	recognize_and_save_text_from_columns(right_column, final_width, final_height);
 
 	// Free the single-channel image
+	free(left_column);
+	free(right_column);
 	free(single_channel_image);
 	stbi_image_free(image);
 
