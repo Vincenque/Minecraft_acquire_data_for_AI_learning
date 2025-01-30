@@ -2,13 +2,65 @@
 #include "../headers/stb_image.h"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "../headers/stb_image_write.h"
+#include <ctype.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <windows.h>
 
+#define MAX_ASCII 123
+#define MATRIX_ROWS 16
+#define MATRIX_COLS 12
+
 const int row_height = 18;
+
+// Global storage for ASCII character matrices
+char ascii_matrices[MAX_ASCII][MATRIX_ROWS][MATRIX_COLS + 1];
+
+// Function to load ASCII matrices from file
+void load_ascii_matrices(const char *filename) {
+	FILE *file = fopen(filename, "r");
+	if (!file) {
+		perror("Error opening file");
+		return; // Exit function to prevent using a NULL pointer
+	}
+
+	char line[64];
+	int ascii_code = -1;
+	int row = 0;
+
+	while (fgets(line, sizeof(line), file)) {
+		// Remove trailing newline
+		line[strcspn(line, "\r\n")] = 0;
+
+		if (strncmp(line, "ASCII", 5) == 0) {
+			sscanf(line, "ASCII %d:", &ascii_code);
+			row = 0; // Reset row counter
+		} else if (ascii_code >= 0 && isdigit(line[0])) {
+			if (row < MATRIX_ROWS) {
+				strncpy(ascii_matrices[ascii_code][row], line, MATRIX_COLS);
+				ascii_matrices[ascii_code][row][MATRIX_COLS] = '\0';
+				row++;
+			}
+		}
+	}
+
+	fclose(file);
+}
+
+// Function to print an ASCII character matrix
+void print_ascii_matrix(int ascii_code) {
+	if (ascii_code < 0 || ascii_code >= MAX_ASCII) {
+		printf("Invalid ASCII code!\n");
+		return;
+	}
+
+	printf("ASCII %d:\n", ascii_code);
+	for (int i = 0; i < MATRIX_ROWS; i++) {
+		printf("%s\n", ascii_matrices[ascii_code][i]);
+	}
+}
 
 // Function to convert RGB image to single-channel binary image
 unsigned char *convert_to_single_channel(unsigned char *image, int width, int height, int channels) {
@@ -254,6 +306,14 @@ void divide_column_into_rows(unsigned char *column, int width, int height, const
 
 int main() {
 	int width, height, channels;
+
+	load_ascii_matrices("ascii_base.txt");
+
+	// for (int i = 0; i < MAX_ASCII; i++) {
+	// 	print_ascii_matrix(i);
+	// }
+
+	// system("pause");
 
 	// Load the image
 	unsigned char *image = stbi_load("assets/test_screen.png", &width, &height, &channels, 0);
