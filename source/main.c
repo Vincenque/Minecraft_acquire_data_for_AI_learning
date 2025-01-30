@@ -16,14 +16,15 @@
 const int row_height = 18;
 
 // Global storage for ASCII character matrices
-char ascii_matrices[MAX_ASCII][MATRIX_ROWS][MATRIX_COLS + 1];
+char ascii_matrices[MAX_ASCII][MATRIX_ROWS][MATRIX_COLS + 1] = {{{0}}};
+int ascii_matrix_widths[MAX_ASCII] = {0};
 
 // Function to load ASCII matrices from file
 void load_ascii_matrices(const char *filename) {
 	FILE *file = fopen(filename, "r");
 	if (!file) {
 		perror("Error opening file");
-		return; // Exit function to prevent using a NULL pointer
+		return;
 	}
 
 	char line[64];
@@ -39,8 +40,15 @@ void load_ascii_matrices(const char *filename) {
 			row = 0; // Reset row counter
 		} else if (ascii_code >= 0 && isdigit(line[0])) {
 			if (row < MATRIX_ROWS) {
+				// Copy only up to MATRIX_COLS characters
 				strncpy(ascii_matrices[ascii_code][row], line, MATRIX_COLS);
 				ascii_matrices[ascii_code][row][MATRIX_COLS] = '\0';
+
+				// Update matrix width if needed
+				int width = strlen(line);
+				if (width > ascii_matrix_widths[ascii_code]) {
+					ascii_matrix_widths[ascii_code] = width;
+				}
 				row++;
 			}
 		}
@@ -49,17 +57,65 @@ void load_ascii_matrices(const char *filename) {
 	fclose(file);
 }
 
-// Function to print an ASCII character matrix
-void print_ascii_matrix(int ascii_code) {
-	if (ascii_code < 0 || ascii_code >= MAX_ASCII) {
-		printf("Invalid ASCII code!\n");
-		return;
+// Function to print a given character matrix
+void print_character_matrix(unsigned char *character, int char_width, int cropped_height) {
+	printf("First character:\n");
+	for (int row = 0; row < cropped_height; row++) {
+		for (int col = 0; col < char_width; col++) {
+			printf("%c", character[row * char_width + col] == 255 ? '1' : '0');
+		}
+		printf("\n");
+	}
+	printf("\n");
+}
+
+// Function to compare a given character matrix with stored ASCII matrices
+char match_character(unsigned char *character, int char_width, int cropped_height) {
+	for (int ascii_code = 0; ascii_code < MAX_ASCII; ascii_code++) {
+		int matrix_width = ascii_matrix_widths[ascii_code];
+		if (matrix_width == 0)
+			continue; // Skip uninitialized matrices
+
+		// Compare using the smaller width
+		int min_width = (matrix_width < char_width) ? matrix_width : char_width;
+		int match = 1;
+
+		for (int row = 0; row < cropped_height && match; row++) {
+			if (row >= MATRIX_ROWS)
+				break; // Avoid accessing beyond stored rows
+
+			for (int col = 0; col < min_width; col++) {
+				char expected = ascii_matrices[ascii_code][row][col];
+				unsigned char actual = character[row * char_width + col];
+
+				if ((expected == '1' && actual != 255) || (expected == '0' && actual != 0)) {
+					match = 0;
+					break;
+				}
+			}
+		}
+
+		if (match) {
+			// printf("Matched ASCII character: %c (Width: %d, Input Width: %d)\n", (char)ascii_code, matrix_width, char_width);
+			return (char)ascii_code;
+		}
 	}
 
-	printf("ASCII %d:\n", ascii_code);
-	for (int i = 0; i < MATRIX_ROWS; i++) {
-		printf("%s\n", ascii_matrices[ascii_code][i]);
+	// Debugging output
+	printf("No matching ASCII character found. Input Width: %d\n", char_width);
+	print_character_matrix(character, char_width, cropped_height);
+	return '?';
+}
+
+// Function to write matched character to output.txt
+void write_character_to_file(char matched_char) {
+	FILE *file = fopen("output.txt", "a");
+	if (!file) {
+		perror("Error opening output file");
+		return;
 	}
+	fprintf(file, "%c", matched_char);
+	fclose(file);
 }
 
 // Function to convert RGB image to single-channel binary image
@@ -185,7 +241,7 @@ void save_character_as_png(unsigned char *character, int char_width, int char_he
 	if (!stbi_write_png(filename, char_width, char_height, 1, character, char_width)) {
 		printf("Failed to save image: %s\n", filename);
 	} else {
-		printf("Saved character as %s\n", filename);
+		// printf("Saved character as %s\n", filename);
 		character_index++;
 	}
 }
@@ -198,6 +254,9 @@ void extract_characters(unsigned char *cropped_row, int cropped_width, int cropp
 	for (int col = 0; col < cropped_width; col++) {
 		if (is_column_black(cropped_row, col, cropped_width, cropped_height)) {
 			space_count++;
+			if (space_count == 8) {
+				start_col = col - 8;
+			}
 		} else {
 			space_count = 0;
 		}
@@ -232,6 +291,18 @@ void extract_characters(unsigned char *cropped_row, int cropped_width, int cropp
 					}
 				}
 
+				// Handle spaces (8 black columns in a row)
+				if (space_count == 8) {
+					space_count = 0;
+					for (int i = 0; i < cropped_height * char_width; i++) {
+
+						character[i] = 0;
+					}
+				}
+
+				char matched_char = match_character(character, char_width, MATRIX_ROWS);
+				write_character_to_file(matched_char);
+
 				// Save the character as a PNG file
 				save_character_as_png(character, char_width, cropped_height);
 
@@ -241,12 +312,8 @@ void extract_characters(unsigned char *cropped_row, int cropped_width, int cropp
 				start_col = -1;
 			}
 		}
-
-		// Handle spaces (8 black columns in a row)
-		if (space_count == 8) {
-			space_count = 0;
-		}
 	}
+	write_character_to_file('\n');
 }
 
 // Function to divide a column into rows of given height, crop rows, and save them to files
@@ -272,8 +339,10 @@ void divide_column_into_rows(unsigned char *column, int width, int height, const
 		}
 
 		// If no white pixel found, skip saving this row
-		if (first_col == -1 || last_col == -1)
+		if (first_col == -1 || last_col == -1) {
+			write_character_to_file('\n');
 			continue;
+		}
 
 		// Add a black border by including one column on both sides
 		first_col = (first_col > 0) ? first_col - 1 : first_col;
@@ -308,12 +377,6 @@ int main() {
 	int width, height, channels;
 
 	load_ascii_matrices("ascii_base.txt");
-
-	// for (int i = 0; i < MAX_ASCII; i++) {
-	// 	print_ascii_matrix(i);
-	// }
-
-	// system("pause");
 
 	// Load the image
 	unsigned char *image = stbi_load("assets/test_screen.png", &width, &height, &channels, 0);
