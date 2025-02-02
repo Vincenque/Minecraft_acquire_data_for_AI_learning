@@ -1,0 +1,60 @@
+Minecraft 1.21.4 (1.21.4/vanilla)
+60 fps T: 120 vsync fancy fancy-clouds B: 2 GPU: 6%
+Integrated server @ 4.7/50.0 ms, 24 tx, 465 rx
+C: 10/6936 (s) D: 8, pC: 000, pU: 00, aB: 12
+E: 0/83, SD: 12
+P: 134. T: 83
+Chunks[C] W: 529, 329 E: 83,52,329
+Chunks[S] W: 1849 E: 160,160,75,441,441,0,0
+minecraft:overworld FC: 0
+
+XYZ: 0.490 / -54.00000 / 0.511
+Block: 0 -54 0 [0 10 0]
+Chunk: 0 -4 0 [0 0 in r.0.0.mca]
+Facing: south (Towards positive Z) (2.8 / 15.4)
+Client Light: 11 (0 sky, 11 block)
+CH S: 62 M: 62
+SH S: 62 O: 58 M: 62 ML: 62
+Biome: minecraft:plains
+Local Difficulty: 0.00 // 0.00 (Day 5)
+Blending: Old
+NoiseRouter T: -0,332 V: -0,161 C: 0,045 E: -0,169 D: 0,872 W: 0,064 PV: -0,808 AS: 8,272 N: 0,022
+Biome builder PV: Low C: Mid inland E: 3 T: 1 H: 1
+SC: 289, M: 0, C: 72, A: 21, A: 0, U: 8, W: 7, W: 0, M: 0
+Sounds: 0/247 + 0/8 (Mood 3%)
+
+Debug charts: [F3+1] Profiler hidden; [F3+2] FPS + TPS hidden; [F3+3] Ping hidden
+For help: press F3 + Q
+
+
+
+Java: 21.0.3
+Mem: 26% 545/2048MB
+Allocation rate: 025MB/s
+Allocated: 45% 928MB
+
+CPU: 12x Intel(R) Core(TM) i7-10750H CPU @ 2.60GHz
+
+Display: 1920x1080 (NVIDIA Corporation)
+Quadro P620/PCIe/SSE2
+3.2.0 NVIDIA 552.74
+
+Targeted Block: 0, -53, 1
+minecraft:deepslate
+axis: y
+#minecraft:nether_carver_replaceables
+#minecraft:lush_ground_replaceable
+#minecraft:ancient_city_replaceable
+#minecraft:sculk_replaceable_world_gen
+#minecraft:moss_replaceable
+#minecraft:mineable/pickaxe
+#minecraft:sculk_replaceable
+#minecraft:base_stone_overworld
+#minecraft:deepslate_ore_replaceables
+#minecraft:azalea_root_replaceable
+#minecraft:dripstone_replaceable_blocks
+#minecraft:bats_spawnable_on
+#minecraft:overworld_carver_replaceables
+
+Targeted Fluid: 0, -53, 1
+minecraft:empty

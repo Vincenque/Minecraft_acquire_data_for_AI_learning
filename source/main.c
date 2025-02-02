@@ -3,12 +3,16 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "../headers/stb_image_write.h"
 #include <ctype.h>
+#include <dirent.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <windows.h>
 
+#define ASSETS_FOLDER "assets/"
+#define OUTPUT_FOLDER "output/"
 #define MAX_ASCII 123
 #define MATRIX_ROWS 16
 #define MATRIX_COLS 12
@@ -107,9 +111,9 @@ char match_character(unsigned char *character, int char_width, int cropped_heigh
 	return '?';
 }
 
-// Function to write matched character to output.txt
-void write_character_to_file(char matched_char) {
-	FILE *file = fopen("output.txt", "a");
+// Function to write matched character to a specified file
+void write_character_to_file(const char *filename, char matched_char) {
+	FILE *file = fopen(filename, "a");
 	if (!file) {
 		perror("Error opening output file");
 		return;
@@ -209,7 +213,7 @@ void divide_single_channel_image_to_columns(unsigned char *image, int width, int
 	*final_width = column_width;
 	*final_height = height;
 
-	//printf("Image successfully divided into columns.\n");
+	// printf("Image successfully divided into columns.\n");
 }
 
 // Function to determine if a column is completely black
@@ -235,7 +239,7 @@ bool has_white_pixel(unsigned char *row, int column, int width, int cropped_heig
 int character_index = 0;
 
 // Main function to process the row
-void extract_characters(unsigned char *cropped_row, int cropped_width, int cropped_height) {
+void extract_characters(const char *filename, unsigned char *cropped_row, int cropped_width, int cropped_height) {
 	int start_col = -1;
 	int space_count = 0;
 
@@ -289,7 +293,7 @@ void extract_characters(unsigned char *cropped_row, int cropped_width, int cropp
 				}
 
 				char matched_char = match_character(character, char_width, MATRIX_ROWS);
-				write_character_to_file(matched_char);
+				write_character_to_file(filename, matched_char);
 
 				// Free the allocated memory
 				free(character);
@@ -298,11 +302,11 @@ void extract_characters(unsigned char *cropped_row, int cropped_width, int cropp
 			}
 		}
 	}
-	write_character_to_file('\n');
+	write_character_to_file(filename, '\n');
 }
 
 // Function to divide a column into rows of given height, crop rows, and save them to files
-void recognize_and_save_text_from_columns(unsigned char *column, int width, int height) {
+void recognize_and_save_text_from_columns(const char *filename, unsigned char *column, int width, int height) {
 	int num_rows = height / row_height;
 	for (int i = 0; i < num_rows; i++) {
 		// Extract the current row, skipping the first two rows
@@ -325,7 +329,7 @@ void recognize_and_save_text_from_columns(unsigned char *column, int width, int 
 
 		// If no white pixel found, skip saving this row
 		if (first_col == -1 || last_col == -1) {
-			write_character_to_file('\n');
+			write_character_to_file(filename, '\n');
 			continue;
 		}
 
@@ -343,44 +347,114 @@ void recognize_and_save_text_from_columns(unsigned char *column, int width, int 
 			memcpy(cropped_row + y * cropped_width, row + y * width + first_col, cropped_width);
 		}
 
-		extract_characters(cropped_row, cropped_width, cropped_height);
+		extract_characters(filename, cropped_row, cropped_width, cropped_height);
 
 		free(cropped_row);
 	}
 }
 
+// Function to check if a corresponding .txt file exists in the output folder
+int txt_file_exists(const char *filename) {
+	char txt_filename[512];
+	snprintf(txt_filename, sizeof(txt_filename), "%s%s.txt", OUTPUT_FOLDER, filename);
+
+	struct stat buffer;
+	return (stat(txt_filename, &buffer) == 0); // Returns 1 if file exists, 0 otherwise
+}
+
+// Function to get a list of .png filenames that do not have corresponding .txt files
+char **get_png_filenames(int *count) {
+	DIR *dir;
+	struct dirent *entry;
+	char **filenames = NULL;
+	*count = 0;
+
+	if ((dir = opendir(ASSETS_FOLDER)) == NULL) {
+		perror("Error opening assets folder");
+		return NULL;
+	}
+
+	while ((entry = readdir(dir)) != NULL) {
+		if (strstr(entry->d_name, ".png") != NULL) { // Check for .png extension
+			char base_name[256];
+			strncpy(base_name, entry->d_name, strlen(entry->d_name) - 4); // Remove .png
+			base_name[strlen(entry->d_name) - 4] = '\0';
+
+			if (!txt_file_exists(base_name)) { // Check if .txt file does not exist
+				filenames = realloc(filenames, (*count + 1) * sizeof(char *));
+				filenames[*count] = strdup(entry->d_name); // Store filename
+				(*count)++;
+			}
+		}
+	}
+	closedir(dir);
+	return filenames;
+}
+
+// Function to remove .png from a filename
+void remove_png_extension(char *filename) {
+	char *ext = strstr(filename, ".png"); // Find the .png extension
+	if (ext != NULL) {
+		*ext = '\0'; // Replace '.' with null terminator to remove the extension
+	}
+}
+
 int main() {
-	int width, height, channels;
+	int width, height, channels, file_count;
 
 	load_ascii_matrices("ascii_base.txt");
 
-	// Load the image
-	unsigned char *image = stbi_load("assets/test_screen.png", &width, &height, &channels, 0);
-	if (!image) {
-		printf("Failed to load the image.\n");
-		return 1;
+	// Get list of .png files that do not have corresponding .txt files
+	char **png_files = get_png_filenames(&file_count);
+
+	if (!png_files || file_count == 0) {
+		printf("No new PNG files found for processing.\n");
 	}
 
-	// Convert the filtered image to single-channel
-	unsigned char *single_channel_image = convert_to_single_channel(image, width, height, channels);
+	for (int i = 0; i < file_count; i++) {
+		char filepath[512];
+		snprintf(filepath, sizeof(filepath), "%s%s", ASSETS_FOLDER, png_files[i]);
 
-	// Divide and save the single-channel image
-	unsigned char *left_column = NULL;
-	unsigned char *right_column = NULL;
-	int final_width = 0;
-	int final_height = 0;
+		// Load the image
+		unsigned char *image = stbi_load(filepath, &width, &height, &channels, 0);
+		if (!image) {
+			printf("Failed to load image: %s\n", filepath);
+			continue;
+		}
 
-	divide_single_channel_image_to_columns(single_channel_image, width, height, &left_column, &right_column, &final_width, &final_height);
+		printf("Processing image: %s\n", filepath);
 
-	// Divide and save rows for left and right columns
-	recognize_and_save_text_from_columns(left_column, final_width, final_height);
-	recognize_and_save_text_from_columns(right_column, final_width, final_height);
+		// Convert the filtered image to single-channel
+		unsigned char *single_channel_image = convert_to_single_channel(image, width, height, channels);
 
-	// Free the single-channel image
-	free(left_column);
-	free(right_column);
-	free(single_channel_image);
-	stbi_image_free(image);
+		// Divide and save the single-channel image
+		unsigned char *left_column = NULL;
+		unsigned char *right_column = NULL;
+		int final_width = 0;
+		int final_height = 0;
 
+		divide_single_channel_image_to_columns(single_channel_image, width, height, &left_column, &right_column, &final_width, &final_height);
+
+		char output_filepath[512];
+		snprintf(output_filepath, sizeof(output_filepath), "%s%s", OUTPUT_FOLDER, png_files[i]);
+		remove_png_extension(output_filepath); // Remove .png
+		strcat(output_filepath, ".txt");	   // Append .txt
+
+		printf("Saving text to file: %s\n", output_filepath);
+
+		// Divide and save rows for left and right columns
+		recognize_and_save_text_from_columns(output_filepath, left_column, final_width, final_height);
+		recognize_and_save_text_from_columns(output_filepath, right_column, final_width, final_height);
+
+		free(left_column);
+		free(right_column);
+		free(single_channel_image);
+		free(png_files[i]);
+		stbi_image_free(image);
+	}
+
+	free(png_files);
+
+	system("pause");
 	return 0;
 }
